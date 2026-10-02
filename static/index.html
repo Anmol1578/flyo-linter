@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flyo payload linter</title>
+  <style>
+    :root {
+      --ink: #16202a;
+      --muted: #566371;
+      --line: #d5dce3;
+      --surface: #f4f6f8;
+      --accent: #0b5cad;
+      --accent-ink: #ffffff;
+      --error: #b3261e;
+      --warning: #8a5a00;
+      --note: #4a5a6a;
+      --ok: #1b6e3c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #fff;
+      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 40px 20px 56px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.6rem, 3vw + 1rem, 2.25rem);
+      line-height: 1.15;
+      letter-spacing: -0.015em;
+      font-weight: 650;
+    }
+
+    .intro {
+      max-width: 62ch;
+      margin: 0 0 28px;
+      color: var(--muted);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
+    @media (min-width: 880px) {
+      .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      font-weight: 650;
+    }
+
+    textarea {
+      width: 100%;
+      height: 440px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+      font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      resize: vertical;
+      tab-size: 2;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      min-height: 40px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    button:hover { background: var(--surface); }
+
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 600;
+    }
+
+    button.primary:hover { background: #094c8f; }
+
+    textarea:focus-visible,
+    button:focus-visible {
+      outline: 3px solid #7fb2ea;
+      outline-offset: 2px;
+    }
+
+    .hint { margin: 8px 0 0; font-size: 0.875rem; color: var(--muted); }
+
+    .summary {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-left: 4px solid var(--line);
+      background: var(--surface);
+      font-weight: 600;
+    }
+    .summary.fail { border-left-color: var(--error); }
+    .summary.pass { border-left-color: var(--ok); }
+    .summary span { font-weight: 400; color: var(--muted); }
+
+    ul.issues { margin: 0; padding: 0; list-style: none; }
+
+    .issue {
+      padding: 10px 0 12px 14px;
+      border-left: 3px solid var(--line);
+      margin-bottom: 10px;
+    }
+    .issue.error { border-left-color: var(--error); }
+    .issue.warning { border-left-color: var(--warning); }
+    .issue.note { border-left-color: var(--note); }
+
+    .issue .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+    .issue .level { font-weight: 650; font-size: 0.9rem; }
+    .issue.error .level { color: var(--error); }
+    .issue.warning .level { color: var(--warning); }
+    .issue.note .level { color: var(--note); }
+    .issue code { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); overflow-wrap: anywhere; }
+    .issue p { margin: 2px 0 0; max-width: 62ch; }
+
+    .empty { color: var(--muted); margin: 0; }
+
+    footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      font-size: 0.875rem;
+      color: var(--muted);
+      max-width: 70ch;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Check a Flyo booking before you send it</h1>
+    <p class="intro">
+      Paste the JSON you plan to send to the web check-in subscribe endpoint.
+      The linter flags codeshare mix-ups, malformed codes, phone and email problems,
+      and webhook settings that would cause a rejection or a silent failure later.
+    </p>
+
+    <div class="workspace">
+      <section aria-labelledby="payload-heading">
+        <h2 id="payload-heading">Subscribe payload</h2>
+        <textarea id="payload" spellcheck="false" aria-describedby="payload-hint"
+                  placeholder='{ "pnr": "ABC123", "flights": [ ... ], "passengers": [ ... ] }'></textarea>
+        <div class="actions">
+          <button id="check" class="primary" type="button">Check booking</button>
+          <button id="load-good" type="button">Load valid example</button>
+          <button id="load-bad" type="button">Load example with errors</button>
+        </div>
+        <p id="payload-hint" class="hint">Runs on the server and nothing is stored. Press Ctrl+Enter to check.</p>
+      </section>
+
+      <section aria-labelledby="results-heading">
+        <h2 id="results-heading">Results</h2>
+        <div id="results" aria-live="polite">
+          <p class="empty">Paste a payload and select Check booking.</p>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      Unofficial tool built from Flyo's public documentation. It uses heuristics, so a clean result
+      does not guarantee Flyo will accept the booking, and a warning is not always a failure.
+      Use fake or test passenger data.
+    </footer>
+  </main>
+
+  <script>
+    const payloadEl = document.getElementById("payload");
+    const resultsEl = document.getElementById("results");
+    const LEVEL_LABEL = { error: "Error", warning: "Warning", info: "Note" };
+    const LEVEL_CLASS = { error: "error", warning: "warning", info: "note" };
+
+    function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+
+    function showMessage(text) {
+      resultsEl.replaceChildren();
+      const p = document.createElement("p");
+      p.className = "empty";
+      p.textContent = text;
+      resultsEl.append(p);
+    }
+
+    function render(data) {
+      resultsEl.replaceChildren();
+
+      const { error, warning, info } = data.counts;
+      const summary = document.createElement("p");
+      summary.className = "summary " + (data.ok ? "pass" : "fail");
+      summary.textContent = data.ok ? "No errors found. " : plural(error, "error") + " to fix. ";
+      const detail = document.createElement("span");
+      detail.textContent = plural(warning, "warning") + ", " + plural(info, "note");
+      summary.append(detail);
+      resultsEl.append(summary);
+
+      const list = document.createElement("ul");
+      list.className = "issues";
+      for (const issue of data.issues) {
+        const item = document.createElement("li");
+        item.className = "issue " + LEVEL_CLASS[issue.level];
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const level = document.createElement("span");
+        level.className = "level";
+        level.textContent = LEVEL_LABEL[issue.level];
+        const path = document.createElement("code");
+        path.textContent = issue.path;
+        meta.append(level, path);
+
+        const message = document.createElement("p");
+        message.textContent = issue.message;
+
+        item.append(meta, message);
+        list.append(item);
+      }
+      resultsEl.append(list);
+    }
+
+    async function check() {
+      let payload;
+      try {
+        payload = JSON.parse(payloadEl.value);
+      } catch (err) {
+        showMessage("This is not valid JSON: " + err.message);
+        return;
+      }
+      try {
+        const response = await fetch("/lint", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw new Error("Server returned " + response.status);
+        render(await response.json());
+      } catch (err) {
+        showMessage("Could not reach the linter: " + err.message);
+      }
+    }
+
+    async function loadExample(name) {
+      try {
+        const response = await fetch("/examples/" + name);
+        const example = await response.json();
+        payloadEl.value = JSON.stringify(example, null, 2);
+        await check();
+      } catch (err) {
+        showMessage("Could not load the example: " + err.message);
+      }
+    }
+
+    document.getElementById("check").addEventListener("click", check);
+    document.getElementById("load-good").addEventListener("click", () => loadExample("good"));
+    document.getElementById("load-bad").addEventListener("click", () => loadExample("bad"));
+    payloadEl.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") check();
+    });
+
+    loadExample("bad");
+  </script>
+</body>
+</html>
